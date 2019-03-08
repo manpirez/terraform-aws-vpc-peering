@@ -36,6 +36,7 @@ data "aws_vpc" "requestor" {
 # Lookup requestor route tables
 data "aws_route_table" "requestor" {
   count     = "${var.enabled == "true" ? length(distinct(sort(data.aws_subnet_ids.requestor.ids))) : 0}"
+  vpc_id    = "${data.aws_vpc.requestor.id}"
   subnet_id = "${element(distinct(sort(data.aws_subnet_ids.requestor.ids)), count.index)}"
 }
 
@@ -60,6 +61,7 @@ data "aws_subnet_ids" "acceptor" {
 # Lookup acceptor route tables
 data "aws_route_table" "acceptor" {
   count     = "${var.enabled == "true" ? length(distinct(sort(data.aws_subnet_ids.acceptor.ids))) : 0}"
+  vpc_id    = "${data.aws_vpc.acceptor.id}"
   subnet_id = "${element(distinct(sort(data.aws_subnet_ids.acceptor.ids)), count.index)}"
 }
 
