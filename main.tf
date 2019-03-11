@@ -10,7 +10,6 @@ module "label" {
 }
 
 resource "aws_vpc_peering_connection" "default" {
-  count       = "${var.enabled == "true" ? 1 : 0}"
   vpc_id      = "${var.requestor_vpc_id}"
   peer_vpc_id = "${var.acceptor_vpc_id}"
 
@@ -29,45 +28,41 @@ resource "aws_vpc_peering_connection" "default" {
 
 # Lookup requestor VPC so that we can reference the CIDR
 data "aws_vpc" "requestor" {
-  count = "${var.enabled == "true" ? 1 : 0}"
   id    = "${var.requestor_vpc_id}"
 }
 
 # Lookup requestor route tables
 data "aws_route_table" "art_requestor" {
-  count     = "${var.enabled == "true" ? length(distinct(sort(data.aws_subnet_ids.requestor.ids))) : 0}"
+  count     = "${length(distinct(sort(data.aws_subnet_ids.requestor.ids)))}"
   vpc_id    = "${data.aws_vpc.requestor.id}"
   subnet_id = "${element(distinct(sort(data.aws_subnet_ids.requestor.ids)), count.index)}"
 }
 
 # Lookup requestor subnets
 data "aws_subnet_ids" "requestor" {
-  count  = "${var.enabled == "true" ? 1 : 0}"
   vpc_id = "${data.aws_vpc.requestor.id}"
 }
 
 # Lookup acceptor VPC so that we can reference the CIDR
 data "aws_vpc" "acceptor" {
-  count = "${var.enabled == "true" ? 1 : 0}"
   id    = "${var.acceptor_vpc_id}"
 }
 
 # Lookup acceptor subnets
 data "aws_subnet_ids" "acceptor" {
-  count  = "${var.enabled == "true" ? 1 : 0}"
   vpc_id = "${data.aws_vpc.acceptor.id}"
 }
 
 # Lookup acceptor route tables
 data "aws_route_table" "acceptor" {
-  count     = "${var.enabled == "true" ? length(distinct(sort(data.aws_subnet_ids.acceptor.ids))) : 0}"
+  count     = "${length(distinct(sort(data.aws_subnet_ids.acceptor.ids)))}"
   vpc_id    = "${data.aws_vpc.acceptor.id}"
   subnet_id = "${element(distinct(sort(data.aws_subnet_ids.acceptor.ids)), count.index)}"
 }
 
 # Create routes from requestor to acceptor
 resource "aws_route" "ar_requestor" {
-  count                     = "${var.enabled == "true" ? length(distinct(sort(data.aws_route_table.art_requestor.*.route_table_id))) * length(data.aws_vpc.acceptor.cidr_block_associations) : 0}"
+  count                     = "${length(distinct(sort(data.aws_route_table.art_requestor.*.route_table_id))) * length(data.aws_vpc.acceptor.cidr_block_associations)}"
   route_table_id            = "${element(distinct(sort(data.aws_route_table.art_requestor.*.route_table_id)), (ceil(count.index / (length(data.aws_vpc.acceptor.cidr_block_associations)))))}"
   destination_cidr_block    = "${lookup(data.aws_vpc.acceptor.cidr_block_associations[count.index % (length(data.aws_vpc.acceptor.cidr_block_associations))], "cidr_block")}"
   vpc_peering_connection_id = "${aws_vpc_peering_connection.default.id}"
@@ -76,7 +71,7 @@ resource "aws_route" "ar_requestor" {
 
 # Create routes from acceptor to requestor
 resource "aws_route" "acceptor" {
-  count                     = "${var.enabled == "true" ? length(distinct(sort(data.aws_route_table.acceptor.*.route_table_id))) * length(data.aws_vpc.requestor.cidr_block_associations) : 0}"
+  count                     = "${length(distinct(sort(data.aws_route_table.acceptor.*.route_table_id))) * length(data.aws_vpc.requestor.cidr_block_associations)}"
   route_table_id            = "${element(distinct(sort(data.aws_route_table.acceptor.*.route_table_id)), ceil(count.index / (length(data.aws_vpc.requestor.cidr_block_associations))))}"
   destination_cidr_block    = "${lookup(data.aws_vpc.requestor.cidr_block_associations[count.index % (length(data.aws_vpc.requestor.cidr_block_associations))], "cidr_block")}"
   vpc_peering_connection_id = "${aws_vpc_peering_connection.default.id}"
